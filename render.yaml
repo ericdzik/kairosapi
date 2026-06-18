@@ -1,0 +1,71 @@
+services:
+  - type: web
+    name: kairos-backend
+    runtime: docker
+    dockerfilePath: ./Dockerfile.render
+    dockerContext: .
+    plan: free
+    healthCheckPath: /up
+    envVars:
+      - key: APP_NAME
+        value: "Kairos Business Group"
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_KEY
+        generateValue: true
+      - key: APP_URL
+        value: https://kairos-backend.onrender.com
+
+      - key: LOG_CHANNEL
+        value: stderr
+      - key: LOG_LEVEL
+        value: warning
+
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_HOST
+        fromDatabase:
+          name: kairos-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: kairos-db
+          property: port
+      - key: DB_DATABASE
+        fromDatabase:
+          name: kairos-db
+          property: database
+      - key: DB_USERNAME
+        fromDatabase:
+          name: kairos-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: kairos-db
+          property: password
+
+      - key: SESSION_DRIVER
+        value: database
+      - key: CACHE_STORE
+        value: database
+      - key: QUEUE_CONNECTION
+        value: database
+      - key: FILESYSTEM_DISK
+        value: local
+
+      - key: ACCESS_TOKEN_EXPIRY
+        value: "15"
+      - key: REFRESH_TOKEN_EXPIRY
+        value: "10080"
+      - key: LOGIN_MAX_ATTEMPTS
+        value: "5"
+      - key: LOGIN_LOCKOUT_MINUTES
+        value: "15"
+
+databases:
+  - name: kairos-db
+    plan: free
+    databaseName: kairos_db
+    user: kairos_user
