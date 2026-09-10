@@ -61,6 +61,9 @@ class VenteController extends Controller
             'produits.*.quantite'   => 'required|integer|min:1',
             'date_vente'       => 'nullable|date',
             'notes'            => 'nullable|string',
+            'latitude'         => 'nullable|numeric|between:-90,90',
+            'longitude'        => 'nullable|numeric|between:-180,180',
+            'adresse_complete' => 'nullable|string|max:500',
         ]);
 
         if (empty($data['client_id']) && empty($data['client_nom'])) {
@@ -99,6 +102,9 @@ class VenteController extends Controller
                 'date_vente'       => $data['date_vente'] ?? now()->toDateString(),
                 'statut'           => 'en_attente',
                 'notes'            => $data['notes'] ?? null,
+                'latitude'         => $data['latitude'] ?? null,
+                'longitude'        => $data['longitude'] ?? null,
+                'adresse_complete' => $data['adresse_complete'] ?? null,
             ]);
             $ventes[] = $vente;
         }

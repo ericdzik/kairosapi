@@ -56,7 +56,7 @@ class PointageController extends Controller
             $moisData  = ['mois' => $mois, 'jours' => []];
             $debutMois = $dateDebut->copy()->addMonths($mois - 1);
 
-            for ($jour = 1; $jour <= 30; $jour++) {
+            for ($jour = 1; $jour <= 31; $jour++) {
                 $date       = $debutMois->copy()->addDays($jour - 1)->toDateString();
                 $countValide    = $joursValidesCount[$date]   ?? 0;
                 $countEnAttente = $joursEnAttenteCount[$date] ?? 0;

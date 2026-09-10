@@ -5,35 +5,84 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\Controller;
 use App\Models\Client;
 use App\Models\Cotisation;
+use App\Models\Versement;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 
 class ExportController extends Controller
 {
     /**
-     * GET /api/exports/rapport-journalier
-     * Export PDF du rapport journalier
+     * GET /api/exports/rapport-journalier?date=YYYY-MM-DD
+     * Export PDF du rapport journalier complet (mises + ventes + versements) groupé par commercial
      */
     public function rapportJournalier(Request $request): Response
     {
         $date = $request->get('date', today()->toDateString());
 
-        $cotisations = Cotisation::with(['client:id,nom,prenom', 'commercial:id,nom,prenom'])
-            ->whereDate('date_cotisation', $date)
-            ->where('statut', 'valide')
-            ->orderBy('created_at')
-            ->get();
+        $commerciaux = \App\Models\User::where('role', 'commercial')
+            ->where('actif', true)
+            ->get(['id', 'nom', 'prenom', 'telephone']);
+
+        $rapportCommx = [];
+        $totalMises  = 0;
+        $totalVentes = 0;
+        $totalAttendu = 0;
+        $totalVerse  = 0;
+
+        foreach ($commerciaux as $commercial) {
+            $cotisations = Cotisation::with(['client:id,nom,prenom', 'tontine:id,montant_mise'])
+                ->where('commercial_id', $commercial->id)
+                ->whereDate('date_cotisation', $date)
+                ->get();
+
+            $ventes = \App\Models\Vente::with(['client:id,nom,prenom', 'produit:id,nom'])
+                ->where('commercial_id', $commercial->id)
+                ->whereDate('date_vente', $date)
+                ->get();
+
+            if ($cotisations->isEmpty() && $ventes->isEmpty()) continue;
+
+            $montantAttendu = $cotisations->whereIn('statut', ['en_attente', 'valide'])->sum('montant_total')
+                + $ventes->whereIn('statut', ['en_attente', 'valide'])->sum('montant');
+
+            $versement = \App\Models\Versement::where('commercial_id', $commercial->id)
+                ->whereDate('date', $date)
+                ->first();
+
+            $totalMises  += $cotisations->sum('montant_total');
+            $totalVentes += $ventes->sum('montant');
+            $totalAttendu += $montantAttendu;
+            $totalVerse  += $versement?->montant_verse ?? 0;
+
+            $rapportCommx[] = [
+                'commercial'      => $commercial->toArray(),
+                'cotisations'     => $cotisations->map(fn($c) => array_merge($c->toArray(), [
+                    'client'  => $c->client?->toArray(),
+                    'tontine' => $c->tontine?->toArray(),
+                ]))->toArray(),
+                'ventes'          => $ventes->map(fn($v) => array_merge($v->toArray(), [
+                    'client'  => $v->client?->toArray(),
+                    'produit' => $v->produit?->toArray(),
+                ]))->toArray(),
+                'montant_attendu' => $montantAttendu,
+                'versement'       => $versement?->toArray(),
+            ];
+        }
 
         $data = [
-            'date'         => $date,
-            'cotisations'  => $cotisations,
-            'total_mises'  => $cotisations->sum('nombre_mises'),
-            'montant_total'=> $cotisations->sum('montant_total'),
-            'genere_par'   => $request->user()->nom . ' ' . $request->user()->prenom,
-            'genere_le'    => now()->format('d/m/Y H:i'),
+            'date'            => $date,
+            'commerciaux'     => $rapportCommx,
+            'nb_commerciaux'  => count($rapportCommx),
+            'total_mises'     => $totalMises,
+            'total_ventes'    => $totalVentes,
+            'total_attendu'   => $totalAttendu,
+            'total_verse'     => $totalVerse,
+            'genere_par'      => $request->user()->nom . ' ' . $request->user()->prenom,
+            'genere_le'       => now()->format('d/m/Y H:i'),
         ];
 
-        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('exports.rapport-journalier', $data);
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('exports.rapport-journalier', $data)
+            ->setPaper('a4', 'portrait');
 
         return $pdf->download("rapport-journalier-{$date}.pdf");
     }

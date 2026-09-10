@@ -126,4 +126,25 @@ class ClientController extends Controller
         $client->delete();
         return response()->json(['message' => 'Client supprimé.']);
     }
+
+    public function reassigner(Request $request, Client $client): JsonResponse
+    {
+        $data = $request->validate([
+            'commercial_id' => 'required|uuid|exists:users,id',
+        ]);
+
+        $ancienCommercialId = $client->commercial_id;
+        $client->update(['commercial_id' => $data['commercial_id']]);
+        $client->load('commercial:id,nom,prenom');
+
+        AuditService::log('reassigner', 'Client', $client->id,
+            ['commercial_id' => $ancienCommercialId],
+            ['commercial_id' => $data['commercial_id']]
+        );
+
+        return response()->json([
+            'message'    => 'Client réassigné.',
+            'client'     => $client,
+        ]);
+    }
 }

@@ -19,6 +19,7 @@ class Vente extends Model
         'produit_id', 'commercial_id', 'validateur_id',
         'quantite', 'montant', 'date_vente',
         'statut', 'motif_annulation', 'valide_at', 'notes',
+        'latitude', 'longitude', 'adresse_complete',
     ];
 
     protected $casts = [

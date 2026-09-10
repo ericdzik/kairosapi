@@ -32,13 +32,19 @@ class TontineController extends Controller
 
         $tontines = $query->paginate(50);
 
-        // Ajouter image_url sur chaque produit des lignes
+        // Ajouter image_url sur chaque produit des lignes + montants pour le formulaire de cotisation
         $tontines->getCollection()->transform(function ($t) {
             foreach ($t->produits as $ligne) {
                 if ($ligne->produit && $ligne->produit->image) {
                     $ligne->produit->image_url = \Illuminate\Support\Facades\Storage::disk('public')->url($ligne->produit->image);
                 }
             }
+            $t->montant_total_attendu = $t->montantTotalAttendu();
+            $t->valeur_produits       = $t->valeurTotaleProduits();
+            $t->montant_total_verse   = $t->cotisations()
+                ->whereIn('statut', ['en_attente', 'valide'])
+                ->selectRaw('SUM(COALESCE(montant_verse, montant_total)) as total')
+                ->value('total') ?? 0;
             return $t;
         });
 
@@ -94,8 +100,9 @@ class TontineController extends Controller
 
             // Chercher la mise dans la grille pour la durée choisie
             $grille = $produit->grilles->firstWhere('duree_mois', $data['duree_mois']);
-            $miseProduit = $grille ? $grille->montant_mise : ($produit->prix_unitaire / ($data['duree_mois'] * 30));
-            $miseProduit = ceil($miseProduit / 25) * 25; // arrondi au multiple de 25 supérieur
+            $miseProduit = $grille ? $grille->montant_mise : ($produit->prix_unitaire / ($data['duree_mois'] * 31));
+            $miseProduit = round($miseProduit / 25) * 25; // arrondi au multiple de 25 le plus proche
+            $miseProduit = max(25, $miseProduit); // minimum 25 FCFA
 
             $sousTotal = $miseProduit * $quantite;
             $montantMise += $sousTotal;
@@ -149,7 +156,9 @@ class TontineController extends Controller
             'total_validees'   => $tontine->totalMisesValidees(),
             'total_attendues'  => $tontine->totalMisesAttendues(),
             'mises_restantes'  => max(0, $tontine->totalMisesAttendues() - $tontine->totalMisesValidees()),
-            'montant_collecte' => $tontine->cotisations()->where('statut', 'valide')->sum('montant_total'),
+            'montant_collecte' => $tontine->montantTotalVerse(),
+            'montant_attendu'  => $tontine->montantTotalAttendu(),
+            'valeur_produits'  => $tontine->valeurTotaleProduits(),
             'progression'      => $tontine->progression(),
             'pret_a_livrer'    => $tontine->estPretALivrer(),
         ]);

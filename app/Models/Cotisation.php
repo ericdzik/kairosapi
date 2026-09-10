@@ -16,7 +16,7 @@ class Cotisation extends Model
 
     protected $fillable = [
         'tontine_id', 'client_id', 'commercial_id', 'validateur_id',
-        'nombre_mises', 'montant_unitaire', 'montant_total',
+        'nombre_mises', 'montant_unitaire', 'montant_total', 'montant_verse',
         'date_cotisation', 'statut', 'motif_rejet', 'valide_at',
     ];
 
@@ -26,6 +26,7 @@ class Cotisation extends Model
         'montant_unitaire' => 'decimal:2',
         'montant_total'    => 'decimal:2',
         'nombre_mises'     => 'integer',
+        'montant_verse'    => 'decimal:2',
     ];
 
     protected static function boot(): void

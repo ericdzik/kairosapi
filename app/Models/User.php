@@ -18,6 +18,7 @@ class User extends Authenticatable
     protected $fillable = [
         'nom', 'prenom', 'telephone', 'password',
         'role', 'actif', 'first_login', 'device_token',
+        'latitude', 'longitude', 'last_seen_at',
     ];
 
     protected $hidden = ['password', 'remember_token'];
@@ -26,6 +27,9 @@ class User extends Authenticatable
         'actif'         => 'boolean',
         'first_login'   => 'boolean',
         'last_login_at' => 'datetime',
+        'last_seen_at'  => 'datetime',
+        'latitude'      => 'decimal:7',
+        'longitude'     => 'decimal:7',
     ];
 
     // Relations

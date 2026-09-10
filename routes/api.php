@@ -14,6 +14,9 @@ use App\Http\Controllers\API\DashboardController;
 use App\Http\Controllers\API\NotificationController;
 use App\Http\Controllers\API\ExportController;
 use App\Http\Controllers\API\AuditLogController;
+use App\Http\Controllers\API\VersementController;
+use App\Http\Controllers\API\LocalisationController;
+use App\Http\Controllers\API\DepenseController;
 
 // AUTH (public)
 Route::prefix('auth')->group(function () {
@@ -31,8 +34,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('role:directeur,secretaire')->group(function () {
         Route::post('users', [UserController::class, 'store']);
     });
-    Route::middleware('role:directeur')->group(function () {
+    Route::middleware('role:directeur,secretaire,comptabilite')->group(function () {
         Route::get('users',              [UserController::class, 'index']);
+    });
+    Route::middleware('role:directeur')->group(function () {
         Route::get('users/{user}',       [UserController::class, 'show']);
         Route::put('users/{user}',       [UserController::class, 'update']);
         Route::delete('users/{user}',    [UserController::class, 'destroy']);
@@ -54,6 +59,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // CLIENTS (infos de base uniquement)
     Route::apiResource('clients', ClientController::class);
+    Route::patch('clients/{client}/reassigner', [ClientController::class, 'reassigner']);
 
     // TONTINES
     Route::get('tontines',                          [TontineController::class, 'index']);
@@ -66,11 +72,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('cotisations',                               [CotisationController::class, 'index']);
     Route::post('cotisations',                              [CotisationController::class, 'store']);
     Route::get('cotisations/jour',                          [CotisationController::class, 'jour']);
-    Route::patch('cotisations/valider-lot',                 [CotisationController::class, 'validerLot']);
     Route::get('tontines/{tontine}/cotisations',            [CotisationController::class, 'parTontine']);
-    Route::patch('cotisations/{cotisation}/valider',        [CotisationController::class, 'valider']);
-    Route::patch('cotisations/{cotisation}/rejeter',        [CotisationController::class, 'rejeter']);
     Route::post('cotisations/{cotisation}/annuler',         [CotisationController::class, 'annuler']);
+
+    // Validation/rejet réservés au directeur
+    Route::middleware('role:directeur')->group(function () {
+        Route::patch('cotisations/valider-lot',                 [CotisationController::class, 'validerLot']);
+        Route::patch('cotisations/{cotisation}/valider',        [CotisationController::class, 'valider']);
+        Route::patch('cotisations/{cotisation}/rejeter',        [CotisationController::class, 'rejeter']);
+    });
 
     // POINTAGE
     Route::get('tontines/{tontine}/pointage',    [PointageController::class, 'grille']);
@@ -78,8 +88,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // LIVRAISONS
     Route::get('livraisons/pret',              [LivraisonController::class, 'pret']);
-    Route::post('livraisons',                  [LivraisonController::class, 'store']);
-    Route::get('livraisons/{livraison}/bon',   [LivraisonController::class, 'bon']);
+    Route::get('livraisons/historique',        [LivraisonController::class, 'historique']);
+    Route::get('livraisons/{tontine}/bon',     [LivraisonController::class, 'bon']);
+    Route::middleware('role:directeur')->group(function () {
+        Route::post('livraisons',              [LivraisonController::class, 'store']);
+    });
 
     // VENTES DIRECTES
     Route::get('ventes',                    [VenteController::class, 'index']);
@@ -110,5 +123,24 @@ Route::middleware('auth:sanctum')->group(function () {
     // AUDIT LOGS
     Route::middleware('role:directeur,controleur')->group(function () {
         Route::get('audit-logs', [AuditLogController::class, 'index']);
+    });
+
+    // LOCALISATION TERRAIN
+    Route::post('localisation',       [LocalisationController::class, 'update']);
+    Route::get('commerciaux/carte',   [LocalisationController::class, 'carte']);
+
+    // DÉPENSES — directeur uniquement
+    Route::middleware('role:directeur')->group(function () {
+        Route::get('depenses',             [DepenseController::class, 'index']);
+        Route::post('depenses',            [DepenseController::class, 'store']);
+        Route::put('depenses/{depense}',   [DepenseController::class, 'update']);
+        Route::delete('depenses/{depense}',[DepenseController::class, 'destroy']);
+    });
+
+    // RAPPORT JOURNALIER & VERSEMENTS — secrétaire et directeur
+    Route::middleware('role:secretaire,directeur')->group(function () {
+        Route::get('rapport-journalier',  [VersementController::class, 'rapport']);
+        Route::post('versements',         [VersementController::class, 'store']);
+        Route::get('versements',          [VersementController::class, 'index']);
     });
 });

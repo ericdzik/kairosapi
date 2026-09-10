@@ -5,6 +5,7 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\Controller;
 use App\Models\Client;
 use App\Models\Cotisation;
+use App\Models\Depense;
 use App\Models\Tontine;
 use App\Models\Vente;
 use Illuminate\Http\JsonResponse;
@@ -13,28 +14,52 @@ use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
-    public function directeur(): JsonResponse
+    public function directeur(Request $request): JsonResponse
     {
+        $debut = $request->get('date_debut', now()->startOfMonth()->toDateString());
+        $fin   = $request->get('date_fin',   now()->toDateString());
+
+        $ca = (float) Cotisation::where('statut', 'valide')
+                ->whereDate('date_cotisation', '>=', $debut)
+                ->whereDate('date_cotisation', '<=', $fin)
+                ->sum('montant_total')
+            + (float) Vente::where('statut', 'valide')
+                ->whereDate('date_vente', '>=', $debut)
+                ->whereDate('date_vente', '<=', $fin)
+                ->sum('montant');
+
+        $depenses = (float) Depense::whereDate('date_depense', '>=', $debut)
+            ->whereDate('date_depense', '<=', $fin)
+            ->sum('montant');
+
         return response()->json([
             'clients' => [
-                'total'    => Client::count(),
+                'total' => Client::count(),
             ],
             'tontines' => [
-                'total'    => Tontine::count(),
-                'actives'  => Tontine::where('statut', 'en_cours')->count(),
-                'terminees'=> Tontine::where('statut', 'termine')->count(),
-                'livrees'  => Tontine::where('statut', 'livre')->count(),
+                'total'         => Tontine::count(),
+                'actives'       => Tontine::where('statut', 'en_cours')->count(),
+                'terminees'     => Tontine::where('statut', 'termine')->count(),
+                'pret_a_livrer' => Tontine::where('statut', 'termine')->count(),
+                'livrees'       => Tontine::where('statut', 'livre')->count(),
             ],
             'finances' => [
-                'cotisations_total'  => (float) Cotisation::where('statut', 'valide')->sum('montant_total'),
-                'ventes_total'       => (float) Vente::where('statut', 'valide')->sum('montant'),
-                'mises_en_attente'   => Cotisation::where('statut', 'en_attente')->count(),
-                'ventes_en_attente'  => Vente::where('statut', 'en_attente')->count(),
+                'cotisations_total' => (float) Cotisation::where('statut', 'valide')->sum('montant_total'),
+                'ventes_total'      => (float) Vente::where('statut', 'valide')->sum('montant'),
+                'mises_en_attente'  => Cotisation::where('statut', 'en_attente')->count(),
+                'ventes_en_attente' => Vente::where('statut', 'en_attente')->count(),
+                'ca_mois'           => $ca,
+                'depenses_mois'     => $depenses,
+                'benefice_net_mois' => $ca - $depenses,
+                'periode_debut'     => $debut,
+                'periode_fin'       => $fin,
             ],
             'top_commerciaux' => DB::table('cotisations')
                 ->join('users', 'cotisations.commercial_id', '=', 'users.id')
                 ->where('cotisations.statut', 'valide')
                 ->whereNull('cotisations.deleted_at')
+                ->whereDate('cotisations.date_cotisation', '>=', $debut)
+                ->whereDate('cotisations.date_cotisation', '<=', $fin)
                 ->groupBy('users.id', 'users.nom', 'users.prenom')
                 ->orderByDesc('montant')
                 ->limit(5)

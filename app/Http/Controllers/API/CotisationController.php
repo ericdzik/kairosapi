@@ -78,6 +78,7 @@ class CotisationController extends Controller
         $data = $request->validate([
             'tontine_id'      => 'required|uuid|exists:tontines,id',
             'nombre_mises'    => 'required|integer|min:1|max:31',
+            'montant_verse'   => 'nullable|numeric|min:1',
             'date_cotisation' => 'nullable|date',
         ]);
 

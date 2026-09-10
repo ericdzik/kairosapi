@@ -14,14 +14,14 @@ class CotisationService
     {
         $tontine = Tontine::with('produit')->findOrFail($data['tontine_id']);
 
-        // Seuls les commerciaux et directeurs peuvent enregistrer des mises
-        if ($commercial->role === 'secretaire' || $commercial->role === 'controleur') {
+        // Seul le commercial peut enregistrer des mises
+        if (!$commercial->isCommercial()) {
             throw ValidationException::withMessages([
-                'role' => ['Vous n\'êtes pas autorisé à enregistrer des mises.'],
+                'role' => ['Seul un commercial peut enregistrer des mises.'],
             ])->status(403);
         }
 
-        if ($commercial->isCommercial() && $tontine->commercial_id !== $commercial->id) {
+        if ($tontine->commercial_id !== $commercial->id) {
             throw ValidationException::withMessages([
                 'tontine_id' => ['Cette tontine ne vous appartient pas.'],
             ])->status(403);
@@ -33,17 +33,53 @@ class CotisationService
             ]);
         }
 
+        // Bloquer si la cotisation est déjà complète (100%)
+        if ($tontine->estPretALivrer()) {
+            throw ValidationException::withMessages([
+                'tontine_id' => ['Cette tontine a atteint son objectif. Aucune mise supplémentaire n\'est acceptée.'],
+            ]);
+        }
+
         // Utiliser le montant_mise de la tontine (pas le prix du produit)
-        $montantMise = $tontine->montant_mise;
-        $nombreMises = $data['nombre_mises'] ?? 1;
+        $montantMise  = (float) $tontine->montant_mise;
+        $nombreMises  = $data['nombre_mises'] ?? 1;
+        $montantVerse = isset($data['montant_verse']) ? (float) $data['montant_verse'] : null;
+        $montantTotal = $montantMise * $nombreMises;
+
+        // Valider que le montant versé ne dépasse pas le montant total de la cotisation
+        if ($montantVerse !== null && $montantVerse > $montantTotal) {
+            throw ValidationException::withMessages([
+                'montant_verse' => ['Le montant versé ne peut pas dépasser le montant total (' . $montantTotal . ' FCFA).'],
+            ]);
+        }
+
+        // Vérifier que la cotisation ne fait pas dépasser le montant prévu de la tontine
+        $montantPrevu   = $tontine->montantTotalAttendu();
+        $montantDejaVerse = (float) $tontine->cotisations()
+            ->whereIn('statut', ['en_attente', 'valide'])
+            ->selectRaw('SUM(COALESCE(montant_verse, montant_total)) as total')
+            ->value('total');
+        $montantEffectif = $montantVerse ?? $montantTotal;
+
+        if (($montantDejaVerse + $montantEffectif) > $montantPrevu) {
+            $restant = $montantPrevu - $montantDejaVerse;
+            throw ValidationException::withMessages([
+                'nombre_mises' => [
+                    'Cette mise dépasse le montant prévu de la tontine. '
+                    . 'Il reste ' . number_format($restant, 0, ',', ' ') . ' FCFA à couvrir '
+                    . '(max ' . floor($restant / $montantMise) . ' mise(s)).'
+                ],
+            ]);
+        }
 
         return Cotisation::create([
             'tontine_id'       => $tontine->id,
             'client_id'        => $tontine->client_id,
-            'commercial_id'    => $tontine->commercial_id, // commercial de la tontine
+            'commercial_id'    => $tontine->commercial_id,
             'nombre_mises'     => $nombreMises,
             'montant_unitaire' => $montantMise,
-            'montant_total'    => $montantMise * $nombreMises,
+            'montant_total'    => $montantTotal,
+            'montant_verse'    => $montantVerse, // null = mise complète
             'date_cotisation'  => $data['date_cotisation'] ?? now()->toDateString(),
             'statut'           => 'en_attente',
         ]);
@@ -51,6 +87,12 @@ class CotisationService
 
     public function valider(Cotisation $cotisation, User $validateur): Cotisation
     {
+        if (!$validateur->isDirecteur()) {
+            throw ValidationException::withMessages([
+                'role' => ['Seul le directeur peut valider une mise.'],
+            ])->status(403);
+        }
+
         if ($cotisation->statut !== 'en_attente') {
             throw ValidationException::withMessages([
                 'statut' => ['Seules les mises en attente peuvent être validées.'],
@@ -70,6 +112,12 @@ class CotisationService
 
     public function validerLot(array $ids, User $validateur): array
     {
+        if (!$validateur->isDirecteur()) {
+            throw ValidationException::withMessages([
+                'role' => ['Seul le directeur peut valider des mises.'],
+            ])->status(403);
+        }
+
         $cotisations = Cotisation::whereIn('id', $ids)->where('statut', 'en_attente')->get();
         $validees = [];
 
@@ -93,6 +141,12 @@ class CotisationService
 
     public function rejeter(Cotisation $cotisation, string $motif, User $validateur): Cotisation
     {
+        if (!$validateur->isDirecteur()) {
+            throw ValidationException::withMessages([
+                'role' => ['Seul le directeur peut rejeter une mise.'],
+            ])->status(403);
+        }
+
         if ($cotisation->statut !== 'en_attente') {
             throw ValidationException::withMessages([
                 'statut' => ['Seules les mises en attente peuvent être rejetées.'],

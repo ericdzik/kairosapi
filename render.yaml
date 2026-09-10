@@ -16,7 +16,7 @@ services:
       - key: APP_KEY
         generateValue: true
       - key: APP_URL
-        value: https://kairos-backend.onrender.com
+        value: https://kairos-backend-nste.onrender.com
 
       - key: LOG_CHANNEL
         value: stderr
