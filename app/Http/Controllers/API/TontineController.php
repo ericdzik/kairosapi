@@ -91,15 +91,20 @@ class TontineController extends Controller
             return response()->json(['message' => 'Ce client ne vous appartient pas.'], 403);
         }
 
-        // Calculer le montant_mise : prix_unitaire / 31 (sans arrondi)
+        // Calculer le montant_mise depuis les grilles des produits selon la durée choisie
         $montantMise = 0;
         $lignes = [];
         foreach ($data['produits'] as $ligne) {
-            $produit  = \App\Models\Produit::findOrFail($ligne['produit_id']);
+            $produit  = \App\Models\Produit::with('grilles')->findOrFail($ligne['produit_id']);
             $quantite = $ligne['quantite'];
 
-            // Mise journalière = prix unitaire / 31, sans arrondi
-            $miseProduit = $produit->prix_unitaire / 31;
+            // Chercher la mise dans la grille pour la durée choisie
+            // Si pas de grille, calculer prix / (duree_mois * 31) sans arrondi
+            $grille      = $produit->grilles->firstWhere('duree_mois', $data['duree_mois']);
+            $miseProduit = $grille
+                ? (float) $grille->montant_mise
+                : ($produit->prix_unitaire / ($data['duree_mois'] * 31));
+
             $sousTotal   = $miseProduit * $quantite;
             $montantMise += $sousTotal;
 

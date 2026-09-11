@@ -57,6 +57,9 @@ fi
 # ----- Optimisation finale -----
 php artisan optimize
 
+# ----- Recalculer les grilles produits (mise = prix / (duree × 31)) -----
+php artisan kairos:recalculer-grilles
+
 # ----- Recalculer les statuts de tontines (au cas où des mises ont été validées) -----
 php artisan kairos:recalculer-tontines
 
