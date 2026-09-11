@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 class AuthService
@@ -23,12 +24,14 @@ class AuthService
      */
     public function login(string $telephone, string $password, ?string $deviceToken = null): array
     {
-        $lockKey = "login_lock:{$telephone}";
+        $lockKey     = "login_lock:{$telephone}";
         $attemptsKey = "login_attempts:{$telephone}";
+
+        Log::info('[AUTH] Tentative de connexion', ['telephone' => $telephone]);
 
         // Vérifier si le compte est bloqué
         if (Cache::has($lockKey)) {
-            $remaining = Cache::get($lockKey . '_ttl', $this->lockoutMinutes);
+            Log::warning('[AUTH] Compte bloqué (brute-force)', ['telephone' => $telephone]);
             throw ValidationException::withMessages([
                 'telephone' => ["Compte temporairement bloqué. Réessayez dans {$this->lockoutMinutes} minutes."],
             ])->status(423);
@@ -36,13 +39,35 @@ class AuthService
 
         $user = User::where('telephone', $telephone)->first();
 
-        if (!$user || !Hash::check($password, $user->password)) {
+        if (!$user) {
+            Log::warning('[AUTH] Utilisateur introuvable', ['telephone' => $telephone]);
+            Cache::increment($attemptsKey);
+            Cache::put($attemptsKey, Cache::get($attemptsKey, 1), now()->addMinutes($this->lockoutMinutes));
+            throw ValidationException::withMessages([
+                'telephone' => ['Identifiants incorrects.'],
+            ]);
+        }
+
+        Log::info('[AUTH] Utilisateur trouvé', [
+            'telephone' => $telephone,
+            'actif'     => $user->actif,
+            'role'      => $user->role,
+        ]);
+
+        if (!Hash::check($password, $user->password)) {
             $attempts = Cache::increment($attemptsKey);
             Cache::put($attemptsKey, $attempts, now()->addMinutes($this->lockoutMinutes));
+
+            Log::warning('[AUTH] Mot de passe incorrect', [
+                'telephone' => $telephone,
+                'attempts'  => $attempts,
+                'max'       => $this->maxAttempts,
+            ]);
 
             if ($attempts >= $this->maxAttempts) {
                 Cache::put($lockKey, true, now()->addMinutes($this->lockoutMinutes));
                 Cache::forget($attemptsKey);
+                Log::warning('[AUTH] Compte bloqué après trop de tentatives', ['telephone' => $telephone]);
                 throw ValidationException::withMessages([
                     'telephone' => ["Trop de tentatives. Compte bloqué {$this->lockoutMinutes} minutes."],
                 ])->status(423);
@@ -54,6 +79,7 @@ class AuthService
         }
 
         if (!$user->actif) {
+            Log::warning('[AUTH] Compte désactivé', ['telephone' => $telephone]);
             throw ValidationException::withMessages([
                 'telephone' => ['Ce compte est désactivé.'],
             ])->status(403);
@@ -62,6 +88,8 @@ class AuthService
         // Réinitialiser les tentatives
         Cache::forget($attemptsKey);
         Cache::forget($lockKey);
+
+        Log::info('[AUTH] Connexion réussie', ['telephone' => $telephone, 'role' => $user->role]);
 
         // Mettre à jour device token et last_login
         $user->update([
