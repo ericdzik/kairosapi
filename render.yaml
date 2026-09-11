@@ -15,8 +15,12 @@ services:
         value: production
       - key: APP_DEBUG
         value: "false"
+      # APP_KEY doit être définie manuellement dans le dashboard Render
+      # Format : base64:<32 octets en base64>
+      # Générer avec : php -r "echo 'base64:' . base64_encode(random_bytes(32));"
+      # Ne jamais committer la vraie valeur ici
       - key: APP_KEY
-        generateValue: true
+        sync: false
       - key: APP_URL
         value: https://kairos-backend-nste.onrender.com
 
