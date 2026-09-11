@@ -46,6 +46,12 @@ if [ "$USER_COUNT" = "0" ]; then
     echo "✅ Seeder exécuté."
 else
     echo "ℹ️  ${USER_COUNT} utilisateur(s) déjà présent(s) — seeder ignoré."
+    # Resetter le mot de passe admin si FORCE_ADMIN_RESET=true
+    if [ "${FORCE_ADMIN_RESET:-false}" = "true" ]; then
+        echo "🔑 FORCE_ADMIN_RESET=true — reset du mot de passe admin..."
+        php artisan kairos:reset-admin
+        echo "✅ Mot de passe admin réinitialisé."
+    fi
 fi
 
 # ----- Optimisation finale -----
