@@ -11,6 +11,15 @@ use Illuminate\Support\Facades\Storage;
 
 class ClientController extends Controller
 {
+    /** Ajoute photo_url à un client */
+    private function withPhotoUrl(Client $client): Client
+    {
+        $client->photo_url = $client->photo
+            ? Storage::disk('public')->url($client->photo)
+            : null;
+        return $client;
+    }
+
     public function index(Request $request): JsonResponse
     {
         $user  = $request->user();
@@ -32,7 +41,12 @@ class ClientController extends Controller
             $query->where('commercial_id', $request->commercial_id);
         }
 
-        return response()->json($query->orderBy('nom')->paginate(50));
+        $clients = $query->orderBy('nom')->paginate(50);
+
+        // Ajouter photo_url sur chaque client de la liste
+        $clients->getCollection()->transform(fn($c) => $this->withPhotoUrl($c));
+
+        return response()->json($clients);
     }
 
     public function store(Request $request): JsonResponse
@@ -66,7 +80,7 @@ class ClientController extends Controller
 
         AuditService::log('create', 'Client', $client->id);
 
-        return response()->json($client, 201);
+        return response()->json($this->withPhotoUrl($client), 201);
     }
 
     public function show(Request $request, Client $client): JsonResponse
@@ -82,12 +96,7 @@ class ClientController extends Controller
             'ventes.produit:id,nom',
         ]);
 
-        // Ajouter l'URL complète de la photo
-        if ($client->photo) {
-            $client->photo_url = Storage::disk('public')->url($client->photo);
-        }
-
-        return response()->json($client);
+        return response()->json($this->withPhotoUrl($client));
     }
 
     public function update(Request $request, Client $client): JsonResponse
@@ -114,7 +123,7 @@ class ClientController extends Controller
         $client->update($data);
         AuditService::log('update', 'Client', $client->id);
 
-        return response()->json($client);
+        return response()->json($this->withPhotoUrl($client));
     }
 
     public function destroy(Client $client): JsonResponse
@@ -143,8 +152,8 @@ class ClientController extends Controller
         );
 
         return response()->json([
-            'message'    => 'Client réassigné.',
-            'client'     => $client,
+            'message' => 'Client réassigné.',
+            'client'  => $this->withPhotoUrl($client),
         ]);
     }
 }
