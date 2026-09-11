@@ -1,4 +1,5 @@
 FROM php:8.4-fpm
+# cache-bust: 2026-09-11
 
 # Dépendances système
 RUN apt-get update && apt-get install -y \
