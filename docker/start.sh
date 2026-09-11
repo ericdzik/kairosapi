@@ -57,5 +57,8 @@ fi
 # ----- Optimisation finale -----
 php artisan optimize
 
+# ----- Recalculer les statuts de tontines (au cas où des mises ont été validées) -----
+php artisan kairos:recalculer-tontines
+
 echo "✅ Setup terminé. Démarrage des services (nginx + php-fpm)..."
 exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf

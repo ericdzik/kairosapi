@@ -61,20 +61,20 @@ class Tontine extends Model
     }
 
     /**
-     * Montant total attendu = min(duree*31*mise, valeur produits)
-     * Le total des cotisations ne peut pas dépasser le prix des produits
+     * Montant total attendu = valeur totale des produits
+     * (prix_unitaire * quantite pour chaque produit de la tontine)
+     * Si aucun produit lié, on replie sur duree * 31 * montant_mise
      */
     public function montantTotalAttendu(): float
     {
-        $parMise        = (float) ($this->duree_mois * 31 * $this->montant_mise);
         $valeurProduits = $this->valeurTotaleProduits();
 
-        // Si valeur produits définie, on plafonne à ce montant
         if ($valeurProduits > 0) {
-            return min($parMise, $valeurProduits);
+            return $valeurProduits;
         }
 
-        return $parMise;
+        // Fallback pour les anciennes tontines sans produits liés
+        return (float) ($this->duree_mois * 31 * $this->montant_mise);
     }
 
     public function montantTotalVerse(): float
