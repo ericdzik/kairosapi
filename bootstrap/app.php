@@ -16,6 +16,18 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Faire confiance aux proxies Render (load-balancer termine TLS en amont)
+        $middleware->trustProxies(
+            at: env('TRUSTED_PROXIES', '127.0.0.1'),
+            headers: \Illuminate\Http\Request::HEADER_X_FORWARDED_FOR
+                   | \Illuminate\Http\Request::HEADER_X_FORWARDED_HOST
+                   | \Illuminate\Http\Request::HEADER_X_FORWARDED_PORT
+                   | \Illuminate\Http\Request::HEADER_X_FORWARDED_PROTO
+        );
+
+        // CORS — doit être le premier middleware global (avant l'auth)
+        $middleware->prepend(\Illuminate\Http\Middleware\HandleCors::class);
+
         // Middleware alias pour les rôles
         $middleware->alias([
             'role' => \App\Http\Middleware\CheckRole::class,

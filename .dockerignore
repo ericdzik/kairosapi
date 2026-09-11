@@ -1,0 +1,43 @@
+# ── Contrôle de version ──────────────────────────────────────────────
+.git
+.gitignore
+.gitattributes
+.github
+
+# ── Environnement local (ne jamais embarquer les secrets) ────────────
+.env
+.env.*
+!.env.example
+
+# ── Dépendances et builds locaux ─────────────────────────────────────
+node_modules
+vendor
+
+# ── Outils de développement ──────────────────────────────────────────
+.editorconfig
+.phpunit.result.cache
+phpunit.xml
+vite.config.js
+package.json
+package-lock.json
+
+# ── Tests ─────────────────────────────────────────────────────────────
+tests
+.github
+
+# ── Fichiers Docker de développement (pas nécessaires dans l'image) ──
+Dockerfile
+docker-compose.yml
+docker/nginx/default.conf
+docker/php/local.ini
+
+# ── Logs et caches générés localement ────────────────────────────────
+storage/logs/*.log
+storage/framework/cache/data/*
+storage/framework/sessions/*
+storage/framework/views/*
+bootstrap/cache/*.php
+
+# ── Documentation ─────────────────────────────────────────────────────
+README.md
+*.md
