@@ -20,6 +20,11 @@ class Client extends Model
         'photo', 'latitude', 'longitude', 'adresse_complete',
     ];
 
+    protected $casts = [
+        'latitude'  => 'float',
+        'longitude' => 'float',
+    ];
+
     protected static function boot(): void
     {
         parent::boot();
