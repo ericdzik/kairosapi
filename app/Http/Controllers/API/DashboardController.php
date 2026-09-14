@@ -187,7 +187,7 @@ class DashboardController extends Controller
         if ($commercialId) {
             $query->where('id', $commercialId);
         }
-        $commerciaux = $query->get(['id', 'nom', 'prenom', 'telephone']);
+        $commerciaux = $query->get(['id', 'nom', 'prenom', 'telephone', 'latitude', 'longitude', 'last_seen_at']);
 
         $stats = $commerciaux->map(function ($commercial) use ($dateDebut, $dateFin) {
             $cotisQ = \App\Models\Cotisation::where('commercial_id', $commercial->id)->where('statut', 'valide');
@@ -207,6 +207,9 @@ class DashboardController extends Controller
                 'nom'                 => $commercial->nom,
                 'prenom'              => $commercial->prenom,
                 'telephone'           => $commercial->telephone,
+                'latitude'            => $commercial->latitude,
+                'longitude'           => $commercial->longitude,
+                'last_seen_at'        => $commercial->last_seen_at,
                 'nb_clients'          => \App\Models\Client::where('commercial_id', $commercial->id)->count(),
                 'nb_tontines'         => \App\Models\Tontine::where('commercial_id', $commercial->id)->count(),
                 'tontines_actives'    => \App\Models\Tontine::where('commercial_id', $commercial->id)->where('statut', 'en_cours')->count(),
