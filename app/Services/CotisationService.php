@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 namespace App\Services;
 
@@ -72,7 +72,7 @@ class CotisationService
             ]);
         }
 
-        return Cotisation::create([
+        $cotisation = Cotisation::create([
             'tontine_id'       => $tontine->id,
             'client_id'        => $tontine->client_id,
             'commercial_id'    => $tontine->commercial_id,
@@ -81,8 +81,14 @@ class CotisationService
             'montant_total'    => $montantTotal,
             'montant_verse'    => $montantVerse, // null = mise complète
             'date_cotisation'  => $data['date_cotisation'] ?? now()->toDateString(),
-            'statut'           => 'en_attente',
+            'statut'           => 'valide',
+            'validateur_id'    => $commercial->id,
+            'valide_at'        => now(),
         ]);
+
+        $this->verifierCompletion($cotisation->tontine_id);
+
+        return $cotisation;
     }
 
     public function valider(Cotisation $cotisation, User $validateur): Cotisation
@@ -191,3 +197,4 @@ class CotisationService
         }
     }
 }
+
