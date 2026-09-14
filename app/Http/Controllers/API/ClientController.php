@@ -5,18 +5,16 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\Controller;
 use App\Models\Client;
 use App\Services\AuditService;
+use App\Services\CloudinaryService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 
 class ClientController extends Controller
 {
     /** Ajoute photo_url à un client */
     private function withPhotoUrl(Client $client): Client
     {
-        $client->photo_url = $client->photo
-            ? Storage::disk('public')->url($client->photo)
-            : null;
+        $client->photo_url = CloudinaryService::url($client->photo);
         return $client;
     }
 
@@ -42,8 +40,6 @@ class ClientController extends Controller
         }
 
         $clients = $query->orderBy('nom')->paginate(50);
-
-        // Ajouter photo_url sur chaque client de la liste
         $clients->getCollection()->transform(fn($c) => $this->withPhotoUrl($c));
 
         return response()->json($clients);
@@ -72,12 +68,11 @@ class ClientController extends Controller
         }
 
         if ($request->hasFile('photo')) {
-            $data['photo'] = $request->file('photo')->store('clients/photos', 'public');
+            $data['photo'] = CloudinaryService::upload($request->file('photo'), 'clients/photos');
         }
 
         $client = Client::create($data);
         $client->load('commercial:id,nom,prenom');
-
         AuditService::log('create', 'Client', $client->id);
 
         return response()->json($this->withPhotoUrl($client), 201);
@@ -114,10 +109,8 @@ class ClientController extends Controller
         ]);
 
         if ($request->hasFile('photo')) {
-            if ($client->photo) {
-                Storage::disk('public')->delete($client->photo);
-            }
-            $data['photo'] = $request->file('photo')->store('clients/photos', 'public');
+            if ($client->photo) CloudinaryService::delete($client->photo);
+            $data['photo'] = CloudinaryService::upload($request->file('photo'), 'clients/photos');
         }
 
         $client->update($data);
@@ -128,9 +121,7 @@ class ClientController extends Controller
 
     public function destroy(Client $client): JsonResponse
     {
-        if ($client->photo) {
-            Storage::disk('public')->delete($client->photo);
-        }
+        if ($client->photo) CloudinaryService::delete($client->photo);
         AuditService::log('delete', 'Client', $client->id);
         $client->delete();
         return response()->json(['message' => 'Client supprimé.']);

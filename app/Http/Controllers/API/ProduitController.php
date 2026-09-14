@@ -5,18 +5,16 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\Controller;
 use App\Models\Produit;
 use App\Services\AuditService;
+use App\Services\CloudinaryService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 
 class ProduitController extends Controller
 {
     private function withImageUrl(Produit $produit): Produit
     {
-        $produit->image_url = $produit->image
-            ? Storage::disk('public')->url($produit->image)
-            : null;
+        $produit->image_url = CloudinaryService::url($produit->image);
         return $produit;
     }
 
@@ -29,12 +27,7 @@ class ProduitController extends Controller
         if ($request->filled('search'))    $query->where('nom', 'ilike', '%' . $request->search . '%');
 
         $produits = $query->orderBy('nom')->paginate(20);
-
-        // Ajouter image_url à chaque produit
-        $produits->getCollection()->transform(function ($p) {
-            $p->image_url = $p->image ? Storage::disk('public')->url($p->image) : null;
-            return $p;
-        });
+        $produits->getCollection()->transform(fn($p) => $this->withImageUrl($p));
 
         return response()->json($produits);
     }
@@ -56,7 +49,7 @@ class ProduitController extends Controller
 
         $imagePath = null;
         if ($request->hasFile('image')) {
-            $imagePath = $request->file('image')->store('produits/images', 'public');
+            $imagePath = CloudinaryService::upload($request->file('image'), 'produits/images');
         }
 
         $produit = null;
@@ -109,8 +102,8 @@ class ProduitController extends Controller
         ]);
 
         if ($request->hasFile('image')) {
-            if ($produit->image) Storage::disk('public')->delete($produit->image);
-            $data['image'] = $request->file('image')->store('produits/images', 'public');
+            if ($produit->image) CloudinaryService::delete($produit->image);
+            $data['image'] = CloudinaryService::upload($request->file('image'), 'produits/images');
         }
 
         DB::transaction(function () use ($data, $produit) {
@@ -145,7 +138,7 @@ class ProduitController extends Controller
 
     public function destroy(Produit $produit): JsonResponse
     {
-        if ($produit->image) Storage::disk('public')->delete($produit->image);
+        if ($produit->image) CloudinaryService::delete($produit->image);
         AuditService::log('delete', 'Produit', $produit->id);
         $produit->delete();
         return response()->json(['message' => 'Produit supprimé.']);
