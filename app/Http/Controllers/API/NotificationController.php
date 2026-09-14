@@ -19,7 +19,7 @@ class NotificationController extends Controller
             ->paginate(30);
 
         $nonLues = Notification::where('user_id', $request->user()->id)
-            ->whereNull('lu_at')
+            ->where('lu', false)
             ->count();
 
         return response()->json([
@@ -37,7 +37,7 @@ class NotificationController extends Controller
             return response()->json(['message' => 'Accès refusé.'], 403);
         }
 
-        $notification->update(['lu_at' => now()]);
+        $notification->update(['lu' => true]);
 
         return response()->json(['message' => 'Notification marquée comme lue.']);
     }
@@ -48,8 +48,8 @@ class NotificationController extends Controller
     public function lireTout(Request $request): JsonResponse
     {
         Notification::where('user_id', $request->user()->id)
-            ->whereNull('lu_at')
-            ->update(['lu_at' => now()]);
+            ->where('lu', false)
+            ->update(['lu' => true]);
 
         return response()->json(['message' => 'Toutes les notifications marquées comme lues.']);
     }
