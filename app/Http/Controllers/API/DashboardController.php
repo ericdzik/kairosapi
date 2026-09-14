@@ -32,6 +32,11 @@ class DashboardController extends Controller
             ->whereDate('date_depense', '<=', $fin)
             ->sum('montant');
 
+        // Solde global de caisse (toutes périodes confondues, sans filtre de date)
+        $soldeCaisseTotal = (float) Cotisation::where('statut', 'valide')->sum('montant_total')
+                          + (float) Vente::where('statut', 'valide')->sum('montant')
+                          - (float) Depense::sum('montant');
+
         return response()->json([
             'clients' => [
                 'total' => Client::count(),
@@ -53,6 +58,7 @@ class DashboardController extends Controller
                 'benefice_net_mois' => $ca - $depenses,
                 'periode_debut'     => $debut,
                 'periode_fin'       => $fin,
+                'solde_caisse_total' => $soldeCaisseTotal,
             ],
             'top_commerciaux' => DB::table('cotisations')
                 ->join('users', 'cotisations.commercial_id', '=', 'users.id')
