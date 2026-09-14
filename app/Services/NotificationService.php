@@ -32,33 +32,44 @@ class NotificationService
     }
 
     /**
-     * Notifier le bureau (directeur + comptabilité) d'une nouvelle mise en attente
+     * Notifier le bureau quand une mise est enregistrée (validée automatiquement)
      */
     public static function nouvelleMise(string $clientNom, string $commercialNom, float $montant): void
     {
-        $message = "$commercialNom a enregistré une mise de {$montant} FCFA pour $clientNom.";
-        self::notifierRole('directeur',    'Nouvelle mise en attente', $message, 'mise');
-        self::notifierRole('comptabilite', 'Nouvelle mise en attente', $message, 'mise');
+        $montantFmt = number_format($montant, 0, ',', ' ');
+        $message = "$commercialNom a enregistré une mise de {$montantFmt} FCFA pour $clientNom.";
+        self::notifierRole('directeur',    'Nouvelle mise enregistrée', $message, 'mise');
+        self::notifierRole('comptabilite', 'Nouvelle mise enregistrée', $message, 'mise');
     }
 
     /**
-     * Notifier quand une tontine est terminée (100%)
+     * Notifier quand une tontine est terminée (100% cotisé)
      */
     public static function tontineTerminee(string $clientNom, string $commercialId): void
     {
+        // Notifier le commercial
         self::envoyer($commercialId, 'Tontine complète !',
             "$clientNom a complété toutes ses mises. Prêt à livrer.", 'livraison');
-        self::notifierRole('directeur', 'Client prêt à livrer',
-            "$clientNom a complété sa tontine.", 'livraison');
+
+        // Notifier le bureau
+        $message = "$clientNom a complété sa tontine et est prêt à être livré.";
+        self::notifierRole('directeur',    'Client prêt à livrer', $message, 'livraison');
+        self::notifierRole('comptabilite', 'Client prêt à livrer', $message, 'livraison');
+        self::notifierRole('secretaire',   'Client prêt à livrer', $message, 'livraison');
     }
 
     /**
-     * Notifier quand une mise est validée
+     * Notifier quand une livraison est effectuée
      */
-    public static function miseValidee(string $commercialId, string $clientNom, float $montant): void
+    public static function livraisonEffectuee(string $clientNom, string $commercialId, string $directeurNom): void
     {
-        self::envoyer($commercialId, 'Mise validée',
-            "La mise de {$montant} FCFA pour $clientNom a été validée.", 'validation');
+        // Notifier le commercial
+        self::envoyer($commercialId, 'Livraison effectuée',
+            "La livraison pour $clientNom a été enregistrée par $directeurNom.", 'livraison');
+
+        // Notifier la comptabilité
+        $message = "La tontine de $clientNom a été livrée par $directeurNom.";
+        self::notifierRole('comptabilite', 'Livraison enregistrée', $message, 'livraison');
     }
 
     /**

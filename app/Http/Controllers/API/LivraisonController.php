@@ -106,15 +106,12 @@ class LivraisonController extends Controller
             'notes_livraison' => $data['notes_livraison'] ?? null,
         ]);
 
-        // Notifier le commercial
-        $clientNom = trim(($tontine->client?->nom ?? '') . ' ' . ($tontine->client?->prenom ?? ''));
+
+        // Notifier le commercial et le bureau
+        $clientNom   = trim(($tontine->client?->nom ?? '') . ' ' . ($tontine->client?->prenom ?? ''));
+        $directeurNom = $request->user()->nom . ' ' . $request->user()->prenom;
         if ($tontine->commercial_id) {
-            NotificationService::envoyer(
-                $tontine->commercial_id,
-                'Livraison effectuée',
-                "La tontine de $clientNom a été livrée.",
-                'livraison'
-            );
+            NotificationService::livraisonEffectuee($clientNom, $tontine->commercial_id, $directeurNom);
         }
 
         AuditService::log('livraison', 'Tontine', $tontine->id, null, [
